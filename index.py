@@ -5,11 +5,11 @@ def handler(event, context):
     auto_scaling_client = boto3.client('autoscaling', region_name='ap-south-1')
     sns_client = boto3.client('sns', region_name='ap-south-1')
 
-    sns_topic_arn = 'arn:aws:sns:your-region:your-account-id:InstanceRefreshNotification'  # Replace with your SNS Topic ARN  # Replace with your SNS Topic ARN
+    sns_topic_arn = 'arn:aws:sns:ap-south-1:{your-account-id}:asg-refresh-notification'  # Replace with your SNS Topic ARN  # Replace with your SNS Topic ARN
 
     try:
         response = auto_scaling_client.start_instance_refresh(
-            AutoScalingGroupName='asg-1',
+            AutoScalingGroupName='asg-terraform-project',
             Strategy='Rolling',
             Preferences={
                 'MinHealthyPercentage': 100,
