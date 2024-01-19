@@ -8,7 +8,7 @@ At UTC 12am everyday, all machines will get refreshed (old machines will be remo
 Email alerts are enabled for all the events (auto scaling and refreshing)
 
 PREREQUISITES :
-1. Acceess Key and Secret Access Key of AWS. 
+1. Access Key and Secret Access Key of AWS. 
 2. Default VPC & Subnet IDs. 
 
 PREREQUISITES in AMI : 
