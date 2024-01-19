@@ -1,3 +1,160 @@
+provider "aws" {
+  region = "ap-south-1"
+}
+
+
+# Creating IAM Instance Profile
+resource "aws_iam_instance_profile" "ec2_profile" {
+  name = "ec2-instance-profile4"
+  role = "CloudWatchRole" 
+}
+
+
+# Security Group for EC2 Instances
+resource "aws_security_group" "ec2_sg" {
+  name        = "ec2_sg"
+  description = "Security group for EC2 instances in ASG"
+  vpc_id      = "vpc-0ce28592841b7d15b" # Placing the desired vpc id
+
+  # Ingress rule for SSH (port 22)
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Ingress rule for HTTP (port 80)
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Egress rule - Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+
+# IAM Role for Lambda Function
+resource "aws_iam_role" "lambda_role" {
+  name = "lambda_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action = "sts:AssumeRole",
+      Effect = "Allow",
+      Principal = {
+        Service = "lambda.amazonaws.com"
+      },
+    }]
+  })
+}
+
+
+
+# IAM Policy for Lambda Function
+resource "aws_iam_role_policy" "lambda_policy" {
+  name = "lambda_policy"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = [
+          "autoscaling:Describe*",
+          "autoscaling:StartInstanceRefresh",
+          "sns:Publish"
+        ],
+        Resource = "*",
+        Effect = "Allow"
+      }
+    ]
+  })
+}
+
+
+# Lambda Permission for CloudWatch Events
+resource "aws_lambda_permission" "allow_cloudwatch_to_call_refresh_function" {
+  statement_id  = "AllowExecutionFromCloudWatch"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.asg_refresh_function.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.daily_refresh.arn
+}
+
+
+#Creating Launch Template for AutoScaling Group 
+resource "aws_launch_template" "asg-launch-template-1" {
+  name  = "asg-launch-template-1"
+  image_id      = "ami-0927306d7ce0cd574" # Placing the desired AMI ID
+  instance_type = "t2.micro"   # Choosing the instance type as per requirement
+
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups             = [aws_security_group.ec2_sg.id]
+  }
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ec2_profile.name
+  }
+
+  block_device_mappings {
+    device_name = "/dev/sda1"
+    ebs {
+      volume_size = 8
+      volume_type = "gp2"
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+
+# Creating Load Balancer
+resource "aws_lb" "asg-terraform-lb" {
+  name               = "asg-terraform-lb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = ["sg-021c0a01b8626d86a"] # Placing the desired security group ID
+  subnets            = ["subnet-0dd68c5ed1ba79cae", "subnet-008e7570bae13c08f"]  # Placing the desired subnet IDs
+  enable_deletion_protection = false
+}
+
+
+# Creating Target Group for Load Balancer
+resource "aws_lb_target_group" "asg-terraform-target-group" {
+  name        = "asg-terraform-target-group"
+  port        = 80
+  protocol    = "HTTP"
+  target_type = "instance"
+  vpc_id      = "vpc-0ce28592841b7d15b"  # Placing the desired VPC ID
+}
+
+
+# Creating Load Balancer Listener
+resource "aws_lb_listener" "front_end" {
+  load_balancer_arn = aws_lb.asg-terraform-lb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.asg-terraform-target-group.arn
+  }
+}
+
+
 # Creating Auto Scaling Group
 resource "aws_autoscaling_group" "asg-terraform-project" {
   name = "asg-terraform-project"
