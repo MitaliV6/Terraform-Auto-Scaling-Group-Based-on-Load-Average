@@ -3,10 +3,51 @@ provider "aws" {
 }
 
 
+# IAM Role for CloudWatch Function
+resource "aws_iam_role" "cloud_watch_role" {
+  name = "cloud_watch_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action = "sts:AssumeRole",
+      Effect = "Allow",
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      },
+    }]
+  })
+}
+
+
+# IAM Policy for CloudWatch Function
+resource "aws_iam_role_policy" "CloudWatchPolicy" {
+  name = "cloud_watch_policy"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = [
+           "logs:CreateLogGroup",
+     "logs:CreateLogStream",
+     "logs:PutLogEvents",
+     "logs:DescribeLogStreams",
+     "cloudwatch:PutMetricData",
+        ],
+        Resource = "*",
+        Effect = "Allow"
+      }
+    ]
+  })
+}
+
+
 # Creating IAM Instance Profile
 resource "aws_iam_instance_profile" "ec2_profile" {
-  name = "ec2-instance-profile4"
-  role = "CloudWatchRole" 
+  name = "ec2-instance-profile"
+  role = aws_iam_role.cloud_watch_role.id
 }
 
 
@@ -14,7 +55,7 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 resource "aws_security_group" "ec2_sg" {
   name        = "ec2_sg"
   description = "Security group for EC2 instances in ASG"
-  vpc_id      = "vpc-0ce28592841b7d15b" # Placing the desired vpc id
+  vpc_id      = var.vpc_id # Placing the desired vpc id
 
   # Ingress rule for SSH (port 22)
   ingress {
@@ -59,7 +100,6 @@ resource "aws_iam_role" "lambda_role" {
 }
 
 
-
 # IAM Policy for Lambda Function
 resource "aws_iam_role_policy" "lambda_policy" {
   name = "lambda_policy"
@@ -95,7 +135,7 @@ resource "aws_lambda_permission" "allow_cloudwatch_to_call_refresh_function" {
 #Creating Launch Template for AutoScaling Group 
 resource "aws_launch_template" "asg-launch-template-1" {
   name  = "asg-launch-template-1"
-  image_id      = "ami-0927306d7ce0cd574" # Placing the desired AMI ID
+  image_id      = var.ami_id # Placing the desired AMI ID
   instance_type = "t2.micro"   # Choosing the instance type as per requirement
 
   network_interfaces {
@@ -126,8 +166,8 @@ resource "aws_lb" "asg-terraform-lb" {
   name               = "asg-terraform-lb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = ["sg-021c0a01b8626d86a"] # Placing the desired security group ID
-  subnets            = ["subnet-0dd68c5ed1ba79cae", "subnet-008e7570bae13c08f"]  # Placing the desired subnet IDs
+  security_groups    = [aws_security_group.ec2_sg.id] # Placing the desired security group ID
+  subnets            = var.subnets  # Placing the desired subnet IDs
   enable_deletion_protection = false
 }
 
@@ -138,7 +178,7 @@ resource "aws_lb_target_group" "asg-terraform-target-group" {
   port        = 80
   protocol    = "HTTP"
   target_type = "instance"
-  vpc_id      = "vpc-0ce28592841b7d15b"  # Placing the desired VPC ID
+  vpc_id      = var.vpc_id  # Placing the desired VPC ID
 }
 
 
@@ -161,7 +201,7 @@ resource "aws_autoscaling_group" "asg-terraform-project" {
   desired_capacity     = 2
   max_size             = 5
   min_size             = 2
-  vpc_zone_identifier  = ["subnet-0dd68c5ed1ba79cae", "subnet-008e7570bae13c08f"]  # Placing the subnet IDs
+  vpc_zone_identifier  = var.subnets  # Placing the subnet IDs
   health_check_type       = "EC2"
   force_delete            = true
   wait_for_capacity_timeout = "0"
