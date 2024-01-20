@@ -9,7 +9,6 @@ Email alerts are enabled for all the events (auto scaling and refreshing)
 
 PREREQUISITES :
 1. Access Key and Secret Access Key of AWS. 
-2. Default VPC & Subnet IDs. 
 
 PREREQUISITES in AMI : 
 1. AWS CLI
