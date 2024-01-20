@@ -1,5 +1,98 @@
+# Specify the AWS Region
 provider "aws" {
   region = "ap-south-1"
+}
+
+
+# Creating VPC 
+resource "aws_vpc" "vpc_1" {
+  cidr_block = "151.25.0.0/16"
+  enable_dns_support = true
+  enable_dns_hostnames = true
+
+   tags = {
+    Name = "MyVPC"
+  }
+}
+
+
+# Creating Internet Gateway
+resource "aws_internet_gateway" "igw_1" {
+  vpc_id = aws_vpc.vpc_1.id
+
+  tags = {
+    Name = "InternetGateway1"
+  }
+}
+
+
+# Creating 1st Subnet in VPC in 1st availability zone
+resource "aws_subnet" "subnet1" {
+  vpc_id                  = aws_vpc.vpc_1.id
+  cidr_block              = "151.25.1.0/24"
+  availability_zone       = "ap-south-1a"  # Replace with desired availability zone 
+  map_public_ip_on_launch = true          
+
+  tags = {
+    Name = "Subnet1"
+  }
+}
+
+
+# Creating 2st Subnet in VPC in 2nd availability zone
+resource "aws_subnet" "subnet2" {
+  vpc_id                  = aws_vpc.vpc_1.id
+  cidr_block              = "151.25.2.0/24"
+  availability_zone       = "ap-south-1b"  # Replace with desired availability zone
+  map_public_ip_on_launch = true          
+
+  tags = {
+    Name = "Subnet2"
+  }
+}
+
+
+# Creating Route Table for 1st Subnet
+resource "aws_route_table" "route_table_subnet1" {
+  vpc_id = aws_vpc.vpc_1.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw_1.id
+  }
+
+  tags = {
+    Name = "RouteTableSubnet1"
+  }
+}
+
+
+# Creating Route Table for 2nd Subnet
+resource "aws_route_table" "route_table_subnet2" {
+  vpc_id = aws_vpc.vpc_1.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw_1.id
+  }
+
+  tags = {
+    Name = "RouteTableSubnet2"
+  }
+}
+
+
+# Associating 1st Route Table with Subnet 1
+resource "aws_route_table_association" "subnet_association_subnet1" {
+  subnet_id      = aws_subnet.subnet1.id
+  route_table_id = aws_route_table.route_table_subnet1.id
+}
+
+
+# Associating 2nd Route Table with Subnet 2
+resource "aws_route_table_association" "subnet_association_subnet2" {
+  subnet_id      = aws_subnet.subnet2.id
+  route_table_id = aws_route_table.route_table_subnet2.id
 }
 
 
@@ -55,7 +148,7 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 resource "aws_security_group" "ec2_sg" {
   name        = "ec2_sg"
   description = "Security group for EC2 instances in ASG"
-  vpc_id      = var.vpc_id # Placing the desired vpc id
+  vpc_id      = aws_vpc.vpc_1.id 
 
   # Ingress rule for SSH (port 22)
   ingress {
@@ -135,8 +228,8 @@ resource "aws_lambda_permission" "allow_cloudwatch_to_call_refresh_function" {
 #Creating Launch Template for AutoScaling Group 
 resource "aws_launch_template" "asg-launch-template-1" {
   name  = "asg-launch-template-1"
-  image_id      = var.ami_id # Placing the desired AMI ID
-  instance_type = "t2.micro"   # Choosing the instance type as per requirement
+  image_id      = var.ami_id # Specifying ID of the ami
+  instance_type = var.instance_type   # Specifying Instance Type
 
   network_interfaces {
     associate_public_ip_address = true
@@ -166,8 +259,8 @@ resource "aws_lb" "asg-terraform-lb" {
   name               = "asg-terraform-lb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.ec2_sg.id] # Placing the desired security group ID
-  subnets            = var.subnets  # Placing the desired subnet IDs
+  security_groups    = [aws_security_group.ec2_sg.id] # ID of the created security group for ec2
+  subnets            = [aws_subnet.subnet1.id , aws_subnet.subnet2.id] # Subnet IDs of the subnets created
   enable_deletion_protection = false
 }
 
@@ -178,7 +271,7 @@ resource "aws_lb_target_group" "asg-terraform-target-group" {
   port        = 80
   protocol    = "HTTP"
   target_type = "instance"
-  vpc_id      = var.vpc_id  # Placing the desired VPC ID
+  vpc_id      = aws_vpc.vpc_1.id 
 }
 
 
@@ -201,7 +294,7 @@ resource "aws_autoscaling_group" "asg-terraform-project" {
   desired_capacity     = 2
   max_size             = 5
   min_size             = 2
-  vpc_zone_identifier  = var.subnets  # Placing the subnet IDs
+  vpc_zone_identifier  = [aws_subnet.subnet1.id , aws_subnet.subnet2.id]  
   health_check_type       = "EC2"
   force_delete            = true
   wait_for_capacity_timeout = "0"
