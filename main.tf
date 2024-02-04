@@ -116,7 +116,7 @@ resource "aws_iam_role" "cloud_watch_role" {
 # IAM Policy for CloudWatch Function
 resource "aws_iam_role_policy" "CloudWatchPolicy" {
   name = "cloud_watch_policy"
-  role = aws_iam_role.lambda_role.id
+  role = cloud_watch_role.id
 
   policy = jsonencode({
     Version = "2012-10-17",
