@@ -1,21 +1,34 @@
-# Terraform-Auto-Scaling-Group-Based-on-Load-Average
+#Terraform Auto Scaling Group based on Load Average
 
-This repository contains a Terraform Code which creates Auto Scaling Group based on the 5 minutes Load Average of the machines. 
-The maximum instance limit is 5 while the minimum instances that should be availabe are 2. 
-When the load average of the machines reaches 75%, scale up process will take place. 
-When load average of the machines reaches 50%, scale down process will take place. 
-At UTC 12am everyday, all machines will get refreshed (old machines will be removed and new ones will be added).
-Email alerts are enabled for all the events (auto scaling and refreshing)
+This repository contains Terraform code for automating the creation of an Auto Scaling Group (ASG) in AWS, leveraging load average metrics for dynamic scaling and instance refreshes. The ASG ensures optimal resource allocation based on the 5-minute load average of the instances, facilitating efficient scaling up or down as needed.
 
-PREREQUISITES :
-1. Access Key and Secret Access Key of AWS. 
+Features:
 
-PREREQUISITES in AMI : 
-1. AWS CLI
-2. Cron to send Load Average of machine to the CloudWatch, with the following command :
-* * * * * /usr/bin/aws cloudwatch put-metric-data --region ap-south-1 --metric-name LoadAverage --namespace MyMetricsasg --value $(uptime | awk -F'[a-z]:' '{ print $2 }' | cut -d, -f2) --unit None >/dev/null 2>&1
+Dynamic Scaling: The ASG automatically adjusts the number of instances based on load average metrics. When the load average reaches 75%, the ASG scales up to meet increased demand. Conversely, when the load average drops to 50%, the ASG scales down to optimize resource utilization.
+Instance Refresh: All instances within the ASG are refreshed at UTC 12am every day to maintain system health and performance. This process involves removing old instances and provisioning new ones.
+Email Alerts: Email alerts are configured to notify administrators of scaling events and instance refreshes, ensuring timely awareness of system changes.
+Prerequisites:
 
-Lambda Function required for Refreshing Machines at UTC 12AM Everyday is wriiten in Python and present in this repository only, by the name index.py.
+Before using this Terraform configuration, ensure the following prerequisites are met:
 
+AWS Access Key and Secret Access Key with appropriate permissions.
+AWS CLI installed on instances within the ASG.
+Lambda function for refreshing instances at UTC 12am.
+Cron job set up on instances to send load average metrics to CloudWatch.
+AMI Requirements:
 
+The AMI used for instances within the ASG should include the following:
 
+AWS CLI installed.
+Cron job configured to send load average metrics to CloudWatch.
+Usage:
+
+To use this Terraform configuration:
+
+Clone this repository to your local machine.
+Update the terraform.tfvars file with your AWS credentials and any other configuration variables.
+Run terraform init to initialize the Terraform project.
+Run terraform apply to create the Auto Scaling Group and associated resources in AWS.
+Lambda Function:
+
+The repository includes a Python-based Lambda function (index.py) for refreshing instances at UTC 12am. Ensure the Lambda function is deployed and configured appropriately for use with the ASG.
