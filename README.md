@@ -1,4 +1,4 @@
-# Coding-Task-Auto-Scaling-Group-Based-on-Load-Average-Terraform-Code-
+# Terraform-Auto-Scaling-Group-Based-on-Load-Average
 
 This repository contains a Terraform Code which creates Auto Scaling Group based on the 5 minutes Load Average of the machines. 
 The maximum instance limit is 5 while the minimum instances that should be availabe are 2. 
